@@ -20,6 +20,34 @@
                 <div class="upload-area">
                     <textarea id="text-input" placeholder="在此粘贴文本内容，或点击下方上传文件..."></textarea>
                     <div class="upload-controls">
+                        <div class="question-count-selector">
+                            <label for="choice-count">选择题：</label>
+                            <select id="choice-count">
+                                <option value="1">1题</option>
+                                <option value="2">2题</option>
+                                <option value="3">3题</option>
+                                <option value="4">4题</option>
+                                <option value="5">5题</option>
+                                <option value="6">6题</option>
+                                <option value="7">7题</option>
+                                <option value="8">8题</option>
+                                <option value="9">9题</option>
+                                <option value="10">10题</option>
+                            </select>
+                            <label for="fill-count">填空题：</label>
+                            <select id="fill-count">
+                                <option value="1">1题</option>
+                                <option value="2">2题</option>
+                                <option value="3">3题</option>
+                                <option value="4">4题</option>
+                                <option value="5">5题</option>
+                                <option value="6">6题</option>
+                                <option value="7">7题</option>
+                                <option value="8">8题</option>
+                                <option value="9">9题</option>
+                                <option value="10">10题</option>
+                            </select>
+                        </div>
                         <input type="file" id="file-input" accept=".txt,.md" style="display: none;">
                         <button id="file-btn" class="btn btn-secondary">📁 上传文件</button>
                         <button id="generate-btn" class="btn btn-primary">🎯 生成题目</button>
