@@ -2,11 +2,21 @@ class QuizApp {
     constructor() {
         this.questions = [];
         this.userAnswers = {};
+        this.selectedQuestions = new Set();
         this.init();
     }
 
     init() {
         this.bindEvents();
+        this.checkLoadParam();
+    }
+
+    checkLoadParam() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const loadId = urlParams.get('load');
+        if (loadId) {
+            this.loadQuestionSet(parseInt(loadId));
+        }
     }
 
     bindEvents() {
@@ -28,6 +38,18 @@ class QuizApp {
 
         document.getElementById('reset-quiz').addEventListener('click', () => {
             this.resetQuiz();
+        });
+
+        document.getElementById('select-all-btn').addEventListener('click', () => {
+            this.toggleSelectAll();
+        });
+
+        document.getElementById('save-selected-btn').addEventListener('click', () => {
+            this.saveSelectedQuestions();
+        });
+
+        document.getElementById('load-questions-btn').addEventListener('click', () => {
+            this.showLoadDialog();
         });
     }
 
@@ -68,6 +90,7 @@ class QuizApp {
             if (data.success) {
                 this.questions = data.questions;
                 this.topic = data.topic;
+                this.selectedQuestions.clear();
                 this.displayQuestions();
             } else {
                 alert('生成题目失败: ' + data.error);
@@ -99,9 +122,18 @@ class QuizApp {
         this.questions.forEach((question, index) => {
             const questionDiv = document.createElement('div');
             questionDiv.className = 'question';
+            questionDiv.style.position = 'relative';
+            
+            // 添加控制按钮
+            const controlsHtml = `
+                <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 10px; align-items: center;">
+                    <input type="checkbox" class="question-checkbox" data-question-id="${question.id}" onchange="app.updateSelection(${question.id}, this.checked)">
+                    <button class="btn btn-sm btn-info save-single-btn" onclick="app.saveSingleQuestion(${question.id})">💾</button>
+                </div>
+            `;
             
             if (question.type === 'multiple_choice') {
-                questionDiv.innerHTML = `
+                questionDiv.innerHTML = controlsHtml + `
                     <h3>题目 ${index + 1}: ${question.question}</h3>
                     <div class="options">
                         ${question.options.map((option, optIndex) => `
@@ -115,7 +147,7 @@ class QuizApp {
                     <div class="answer-feedback" id="feedback_${question.id}" style="margin-top: 10px; display: none;"></div>
                 `;
             } else if (question.type === 'fill_blank') {
-                questionDiv.innerHTML = `
+                questionDiv.innerHTML = controlsHtml + `
                     <h3>题目 ${index + 1}: ${question.question}</h3>
                     <input type="text" name="question_${question.id}" placeholder="请输入答案" style="width: 100%; padding: 10px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;">
                     <button class="btn btn-primary check-answer" data-question-id="${question.id}" style="margin-top: 10px;">检查答案</button>
@@ -133,8 +165,124 @@ class QuizApp {
             });
         });
 
+        this.updateSelectedCount();
         document.getElementById('upload-section').style.display = 'none';
         document.getElementById('questions-section').style.display = 'block';
+    }
+
+    updateSelection(questionId, isSelected) {
+        if (isSelected) {
+            this.selectedQuestions.add(questionId);
+        } else {
+            this.selectedQuestions.delete(questionId);
+        }
+        this.updateSelectedCount();
+    }
+
+    updateSelectedCount() {
+        const countElement = document.getElementById('selected-count');
+        if (countElement) {
+            const count = this.selectedQuestions.size;
+            countElement.textContent = count > 0 ? `已选择 ${count} 题` : '';
+        }
+    }
+
+    toggleSelectAll() {
+        const checkboxes = document.querySelectorAll('.question-checkbox');
+        const allSelected = this.selectedQuestions.size === checkboxes.length;
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = !allSelected;
+            const questionId = parseInt(checkbox.dataset.questionId);
+            if (!allSelected) {
+                this.selectedQuestions.add(questionId);
+            } else {
+                this.selectedQuestions.delete(questionId);
+            }
+        });
+        
+        this.updateSelectedCount();
+    }
+
+    async saveSingleQuestion(questionId) {
+        const question = this.questions.find(q => q.id == questionId);
+        if (!question) return;
+
+        try {
+            const response = await fetch('/save_single_question', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    question: question,
+                    topic: `${this.topic} - 单题收藏`
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert('题目保存成功！');
+            } else {
+                alert('保存失败: ' + data.error);
+            }
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    }
+
+    async saveSelectedQuestions() {
+        if (this.selectedQuestions.size === 0) {
+            alert('请先选择题目');
+            return;
+        }
+
+        const title = prompt('请输入题目集名称:', `${this.topic} - 精选题目`);
+        if (!title) return;
+
+        try {
+            const response = await fetch('/save_selected_questions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    selected_ids: Array.from(this.selectedQuestions),
+                    title: title
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`成功保存 ${data.count} 道题目！`);
+                this.selectedQuestions.clear();
+                this.updateSelectedCount();
+                document.querySelectorAll('.question-checkbox').forEach(cb => cb.checked = false);
+            } else {
+                alert('保存失败: ' + data.error);
+            }
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    }
+
+    async showLoadDialog() {
+        window.open('/question_sets_page', '_blank');
+    }
+
+    async loadQuestionSet(setId) {
+        try {
+            const response = await fetch(`/load_questions/${setId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.questions = data.questions;
+                this.topic = data.topic;
+                this.selectedQuestions.clear();
+                this.displayQuestions();
+                alert('题目加载成功！');
+            } else {
+                alert('加载失败: ' + data.error);
+            }
+        } catch (error) {
+            alert('加载失败: ' + error.message);
+        }
     }
 
     async checkSingleAnswer(questionId) {
@@ -271,6 +419,7 @@ class QuizApp {
     resetQuiz() {
         this.questions = [];
         this.userAnswers = {};
+        this.selectedQuestions.clear();
         
         document.getElementById('text-input').value = '';
         document.getElementById('upload-section').style.display = 'block';
@@ -279,7 +428,8 @@ class QuizApp {
     }
 }
 
-// 初始化应用
+// 全局引用
+let app;
 document.addEventListener('DOMContentLoaded', () => {
-    new QuizApp();
+    app = new QuizApp();
 });

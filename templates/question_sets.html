@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题目集管理 - 智能题目生成器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 题目集管理</h1>
+            <a href="/" class="btn btn-secondary">← 返回主页</a>
+        </header>
+
+        <main>
+            <section class="section">
+                <div id="question-sets-container">
+                    <div class="loading">加载中...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        class QuestionSetsManager {
+            constructor() {
+                this.loadQuestionSets();
+            }
+
+            async loadQuestionSets() {
+                try {
+                    const response = await fetch('/question_sets');
+                    const data = await response.json();
+                    this.displayQuestionSets(data.sets);
+                } catch (error) {
+                    document.getElementById('question-sets-container').innerHTML = 
+                        '<div class="error">加载失败: ' + error.message + '</div>';
+                }
+            }
+
+            displayQuestionSets(sets) {
+                const container = document.getElementById('question-sets-container');
+                
+                if (!sets.length) {
+                    container.innerHTML = '<div class="empty">暂无保存的题目集</div>';
+                    return;
+                }
+
+                container.innerHTML = sets.map(set => `
+                    <div class="question-set-card">
+                        <h3>${set.topic}</h3>
+                        <p>${set.question_count}题 - ${set.created_at}</p>
+                        <div class="card-actions">
+                            <button onclick="manager.loadQuestionSet(${set.id})" class="btn btn-primary">开始练习</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            loadQuestionSet(setId) {
+                window.location.href = `/?load=${setId}`;
+            }
+        }
+
+        const manager = new QuestionSetsManager();
+    </script>
+
+    <style>
+        .question-set-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            background: white;
+        }
+        .question-set-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .question-set-card p {
+            color: #666;
+            margin: 0 0 15px 0;
+        }
+        .card-actions {
+            text-align: right;
+        }
+        .loading, .error, .empty {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            color: #d32f2f;
+        }
+    </style>
+</body>
+</html>

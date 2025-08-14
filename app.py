@@ -3,6 +3,7 @@ import json
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from database import init_db, save_single_question, save_selected_questions, get_question_sets, load_question_set
 
 load_dotenv()
 
@@ -13,9 +14,19 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # 确保上传目录存在
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# 初始化数据库
+init_db()
+
 @app.route('/')
 def index():
+    load_id = request.args.get('load')
+    if load_id:
+        return render_template('index.html', load_id=load_id)
     return render_template('index.html')
+
+@app.route('/question_sets_page')
+def question_sets_page():
+    return render_template('question_sets.html')
 
 @app.route('/upload_text', methods=['POST'])
 def upload_text():
@@ -32,8 +43,9 @@ def upload_text():
         result = generate_questions(text_content, choice_count, fill_count)
         
         # 保存当前题目到全局变量
-        global current_questions
+        global current_questions, current_topic
         current_questions = result['questions']
+        current_topic = result['topic']
         
         return jsonify({
             'success': True,
@@ -130,6 +142,7 @@ def generate_questions(text, choice_count=1, fill_count=1):
 
 # 存储当前题目数据
 current_questions = []
+current_topic = ''
 
 @app.route('/submit_answer', methods=['POST'])
 def submit_answer():
@@ -156,6 +169,67 @@ def submit_answer():
             'correct': is_correct,
             'correct_answer': correct_answer,
             'user_answer': user_answer
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save_single_question', methods=['POST'])
+def save_single_question_api():
+    try:
+        data = request.get_json()
+        question_data = data.get('question')
+        topic = data.get('topic', '单个题目')
+        
+        if not question_data:
+            return jsonify({'error': '题目数据不能为空'}), 400
+        
+        set_id = save_single_question(question_data, topic)
+        return jsonify({'success': True, 'set_id': set_id})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save_selected_questions', methods=['POST'])
+def save_selected_questions_api():
+    try:
+        data = request.get_json()
+        selected_ids = data.get('selected_ids', [])
+        title = data.get('title', current_topic)
+        
+        if not selected_ids:
+            return jsonify({'error': '请选择题目'}), 400
+        
+        set_id, count = save_selected_questions(current_questions, selected_ids, title)
+        return jsonify({'success': True, 'set_id': set_id, 'count': count})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/question_sets')
+def list_question_sets():
+    try:
+        sets = get_question_sets()
+        return jsonify({'sets': sets})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/load_questions/<int:set_id>')
+def load_questions(set_id):
+    try:
+        global current_questions, current_topic
+        
+        topic, questions = load_question_set(set_id)
+        if not topic:
+            return jsonify({'error': '题目集不存在'}), 404
+        
+        current_questions = questions
+        current_topic = topic
+        
+        return jsonify({
+            'success': True,
+            'questions': questions,
+            'topic': topic
         })
     
     except Exception as e:
