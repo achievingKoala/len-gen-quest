@@ -28,16 +28,17 @@ def upload_text():
         if not text_content.strip():
             return jsonify({'error': '文本内容不能为空'}), 400
         
-        # 生成题目
-        questions = generate_questions(text_content, choice_count, fill_count)
+        # 生成题目和主题
+        result = generate_questions(text_content, choice_count, fill_count)
         
         # 保存当前题目到全局变量
         global current_questions
-        current_questions = questions
+        current_questions = result['questions']
         
         return jsonify({
             'success': True,
-            'questions': questions,
+            'questions': result['questions'],
+            'topic': result['topic'],
             'text_length': len(text_content)
         })
     
@@ -45,7 +46,7 @@ def upload_text():
         return jsonify({'error': str(e)}), 500
 
 def generate_questions(text, choice_count=1, fill_count=1):
-    """生成题目的核心函数"""
+    """生成题目和主题的核心函数"""
     client = OpenAI(
         base_url=os.getenv('OPENAI_BASE_URL'),
         api_key=os.getenv('OPENAI_API_KEY'),
@@ -54,27 +55,30 @@ def generate_questions(text, choice_count=1, fill_count=1):
     total_count = choice_count + fill_count
     
     prompt = f"""
-基于以下文本内容，生成{total_count}道练习题（{choice_count}道选择题，{fill_count}道填空题）。
+基于以下文本内容，生成一个主题和{total_count}道练习题（{choice_count}道选择题，{fill_count}道填空题）。
 
 文本内容：
 {text}
 
 请按以下JSON格式返回：
-[
-  {{
-    "id": 1,
-    "type": "multiple_choice",
-    "question": "题目内容",
-    "options": ["选项A", "选项B", "选项C", "选项D"],
-    "correct_answer": 0
-  }},
-  {{
-    "id": 2,
-    "type": "fill_blank",
-    "question": "填空题内容，用______表示空白",
-    "correct_answer": "正确答案"
-  }}
-]
+{{
+  "topic": "文本的主要主题（简洁概括）",
+  "questions": [
+    {{
+      "id": 1,
+      "type": "multiple_choice",
+      "question": "题目内容",
+      "options": ["选项A", "选项B", "选项C", "选项D"],
+      "correct_answer": 0
+    }},
+    {{
+      "id": 2,
+      "type": "fill_blank",
+      "question": "填空题内容，用______表示空白",
+      "correct_answer": "正确答案"
+    }}
+  ]
+}}
 """
     
     try:
@@ -90,11 +94,11 @@ def generate_questions(text, choice_count=1, fill_count=1):
         elif '```' in content:
             content = content.split('```')[1].split('```')[0].strip()
         
-        questions = json.loads(content)
-        return questions
+        result = json.loads(content)
+        return result
     except Exception as e:
         print(f"AI调用失败: {e}")
-        # 如果AI调用失败，返回默认题目
+        # 如果AI调用失败，返回默认题目和主题
         default_questions = []
         question_id = 1
         
@@ -119,7 +123,10 @@ def generate_questions(text, choice_count=1, fill_count=1):
             })
             question_id += 1
             
-        return default_questions
+        return {
+            'topic': '文本学习',
+            'questions': default_questions
+        }
 
 # 存储当前题目数据
 current_questions = []

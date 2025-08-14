@@ -65,6 +65,7 @@ class QuizApp {
             
             if (data.success) {
                 this.questions = data.questions;
+                this.topic = data.topic;
                 this.displayQuestions();
             } else {
                 alert('生成题目失败: ' + data.error);
@@ -77,6 +78,19 @@ class QuizApp {
     displayQuestions() {
         const container = document.getElementById('questions-container');
         container.innerHTML = '';
+        
+        // 显示主题
+        if (this.topic) {
+            const topicDiv = document.createElement('div');
+            topicDiv.className = 'topic-header';
+            topicDiv.innerHTML = `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+                    <h3 style="margin: 0; color: #1976d2;">📖 学习主题</h3>
+                    <p style="margin: 5px 0 0 0; font-size: 16px; color: #424242;">${this.topic}</p>
+                </div>
+            `;
+            container.appendChild(topicDiv);
+        }
 
         this.questions.forEach((question, index) => {
             const questionDiv = document.createElement('div');
