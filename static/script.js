@@ -40,6 +40,8 @@ class QuizApp {
 
     async generateQuestions() {
         const textContent = document.getElementById('text-input').value.trim();
+        const choiceCount = parseInt(document.getElementById('choice-count').value);
+        const fillCount = parseInt(document.getElementById('fill-count').value);
         
         if (!textContent) {
             alert('请先输入或上传文本内容');
@@ -52,7 +54,11 @@ class QuizApp {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text: textContent })
+                body: JSON.stringify({ 
+                    text: textContent,
+                    choice_count: choiceCount,
+                    fill_count: fillCount
+                })
             });
 
             const data = await response.json();
@@ -87,19 +93,82 @@ class QuizApp {
                             </label>
                         `).join('')}
                     </div>
+                    <button class="btn btn-primary check-answer" data-question-id="${question.id}" style="margin-top: 10px;">检查答案</button>
+                    <div class="answer-feedback" id="feedback_${question.id}" style="margin-top: 10px; display: none;"></div>
                 `;
             } else if (question.type === 'fill_blank') {
                 questionDiv.innerHTML = `
                     <h3>题目 ${index + 1}: ${question.question}</h3>
                     <input type="text" name="question_${question.id}" placeholder="请输入答案" style="width: 100%; padding: 10px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button class="btn btn-primary check-answer" data-question-id="${question.id}" style="margin-top: 10px;">检查答案</button>
+                    <div class="answer-feedback" id="feedback_${question.id}" style="margin-top: 10px; display: none;"></div>
                 `;
             }
             
             container.appendChild(questionDiv);
         });
 
+        // 绑定检查答案按钮事件
+        document.querySelectorAll('.check-answer').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.checkSingleAnswer(e.target.dataset.questionId);
+            });
+        });
+
         document.getElementById('upload-section').style.display = 'none';
         document.getElementById('questions-section').style.display = 'block';
+    }
+
+    async checkSingleAnswer(questionId) {
+        const question = this.questions.find(q => q.id == questionId);
+        if (!question) return;
+
+        let userAnswer;
+        if (question.type === 'multiple_choice') {
+            const selected = document.querySelector(`[name="question_${question.id}"]:checked`);
+            userAnswer = selected ? parseInt(selected.value) : null;
+        } else if (question.type === 'fill_blank') {
+            const input = document.querySelector(`[name="question_${question.id}"]`);
+            userAnswer = input.value.trim();
+        }
+
+        try {
+            const response = await fetch('/submit_answer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question_id: questionId,
+                    answer: userAnswer
+                })
+            });
+
+            const result = await response.json();
+            this.showAnswerFeedback(questionId, result, question);
+        } catch (error) {
+            alert('检查答案失败: ' + error.message);
+        }
+    }
+
+    showAnswerFeedback(questionId, result, question) {
+        const feedbackDiv = document.getElementById(`feedback_${questionId}`);
+        const isCorrect = result.correct;
+        
+        let correctAnswerText;
+        if (question.type === 'multiple_choice') {
+            correctAnswerText = question.options[result.correct_answer];
+        } else {
+            correctAnswerText = result.correct_answer;
+        }
+
+        feedbackDiv.innerHTML = `
+            <div style="padding: 10px; border-radius: 4px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; color: ${isCorrect ? '#155724' : '#721c24'};">
+                ${isCorrect ? '✅ 回答正确！' : '❌ 回答错误'}
+                <br><small>正确答案：${correctAnswerText}</small>
+            </div>
+        `;
+        feedbackDiv.style.display = 'block';
     }
 
     async submitQuiz() {
