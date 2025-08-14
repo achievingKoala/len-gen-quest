@@ -4,4 +4,4 @@ __pycache__/
 uploads/
 
 .vscode/
-.local-doc/
+local-doc/
