@@ -48,6 +48,8 @@ class QuizApp {
             return;
         }
 
+        this.showLoading('正在生成题目...');
+
         try {
             const response = await fetch('/upload_text', {
                 method: 'POST',
@@ -72,6 +74,8 @@ class QuizApp {
             }
         } catch (error) {
             alert('网络错误: ' + error.message);
+        } finally {
+            this.hideLoading();
         }
     }
 
@@ -246,6 +250,22 @@ class QuizApp {
             return question.options[answer] || '未选择';
         }
         return answer || '未填写';
+    }
+
+    showLoading(message) {
+        const container = document.getElementById('questions-container');
+        container.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <span>${message}</span>
+            </div>
+        `;
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('questions-section').style.display = 'block';
+    }
+
+    hideLoading() {
+        // Loading will be hidden when displayQuestions is called
     }
 
     resetQuiz() {
