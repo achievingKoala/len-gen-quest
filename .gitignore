@@ -3,6 +3,5 @@ __pycache__/
 *.pyc
 uploads/
 
-demo.py
 .vscode/
 .local-doc/
