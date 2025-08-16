@@ -48,10 +48,9 @@ def upload_text():
         # 生成题目和主题
         result = generate_questions(text_content, choice_count, fill_count)
         
-        # 保存当前题目到全局变量
-        global current_questions, current_topic
-        current_questions = result['questions']
-        current_topic = result['topic']
+        # 保存当前题目到session
+        session['current_questions'] = result['questions']
+        session['current_topic'] = result['topic']
         
         return jsonify({
             'success': True,
@@ -150,9 +149,7 @@ def generate_questions(text, choice_count=1, fill_count=1):
             'questions': default_questions
         }
 
-# 存储当前题目数据
-current_questions = []
-current_topic = ''
+
 
 @app.route('/submit_answer', methods=['POST'])
 def submit_answer():
@@ -162,6 +159,7 @@ def submit_answer():
         user_answer = data.get('answer')
         
         # 查找对应题目
+        current_questions = session.get('current_questions', [])
         question = next((q for q in current_questions if q['id'] == int(question_id)), None)
         if not question:
             return jsonify({'error': '题目不存在'}), 400
@@ -206,7 +204,8 @@ def save_selected_questions_api():
     try:
         data = request.get_json()
         selected_ids = data.get('selected_ids', [])
-        title = data.get('title', current_topic)
+        title = data.get('title', session.get('current_topic', '未命名题目集'))
+        current_questions = session.get('current_questions', [])
         user_id = get_user_id()
         
         if not selected_ids:
@@ -230,15 +229,14 @@ def list_question_sets():
 @app.route('/load_questions/<int:set_id>')
 def load_questions(set_id):
     try:
-        global current_questions, current_topic
         user_id = get_user_id()
         
         topic, questions = load_question_set(set_id, user_id)
         if not topic:
             return jsonify({'error': '题目集不存在或无权限访问'}), 404
         
-        current_questions = questions
-        current_topic = topic
+        session['current_questions'] = questions
+        session['current_topic'] = topic
         
         return jsonify({
             'success': True,
