@@ -76,13 +76,15 @@ def generate_questions(text, choice_count=1, fill_count=1):
       "type": "multiple_choice",
       "question": "题目内容",
       "options": ["选项A", "选项B", "选项C", "选项D"],
-      "correct_answer": 0
+      "correct_answer": 0,
+      "explanation": "答案解释说明"
     }},
     {{
       "id": 2,
       "type": "fill_blank",
       "question": "填空题内容，用______表示空白",
-      "correct_answer": "正确答案"
+      "correct_answer": "正确答案",
+      "explanation": "答案解释说明"
     }}
   ]
 }}
@@ -116,7 +118,8 @@ def generate_questions(text, choice_count=1, fill_count=1):
                 'type': 'multiple_choice',
                 'question': f'根据文本内容，以下哪个说法正确？（题目{question_id}）',
                 'options': ['选项A', '选项B', '选项C', '选项D'],
-                'correct_answer': 0
+                'correct_answer': 0,
+                'explanation': '请参考文本内容进行理解'
             })
             question_id += 1
         
@@ -126,7 +129,8 @@ def generate_questions(text, choice_count=1, fill_count=1):
                 'id': question_id,
                 'type': 'fill_blank',
                 'question': f'请填空：文本中提到的关键概念是______。（题目{question_id}）',
-                'correct_answer': '关键词'
+                'correct_answer': '关键词',
+                'explanation': '请参考文本内容进行理解'
             })
             question_id += 1
             

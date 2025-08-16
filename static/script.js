@@ -328,10 +328,13 @@ class QuizApp {
             correctAnswerText = result.correct_answer;
         }
 
+        const explanationHtml = question.explanation ? `<br><small><strong>解析：</strong>${question.explanation}</small>` : '';
+
         feedbackDiv.innerHTML = `
             <div style="padding: 10px; border-radius: 4px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; color: ${isCorrect ? '#155724' : '#721c24'};">
                 ${isCorrect ? '✅ 回答正确！' : '❌ 回答错误'}
                 <br><small>正确答案：${correctAnswerText}</small>
+                ${explanationHtml}
             </div>
         `;
         feedbackDiv.style.display = 'block';
@@ -378,11 +381,14 @@ class QuizApp {
                     const userAnswer = this.userAnswers[question.id];
                     const isCorrect = userAnswer === question.correct_answer;
                     
+                    const explanationHtml = question.explanation ? `<br><small><strong>解析：</strong>${question.explanation}</small>` : '';
+                    
                     return `
                         <div class="result-item" style="margin: 15px 0; padding: 15px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; border-radius: 6px;">
                             <strong>题目 ${index + 1}:</strong> ${isCorrect ? '✅ 正确' : '❌ 错误'}
                             <br>
                             <small>你的答案: ${this.formatAnswer(question, userAnswer)} | 正确答案: ${this.formatAnswer(question, question.correct_answer)}</small>
+                            ${explanationHtml}
                         </div>
                     `;
                 }).join('')}

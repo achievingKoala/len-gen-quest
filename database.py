@@ -21,6 +21,7 @@ def init_db():
             question TEXT NOT NULL,
             options TEXT,
             correct_answer TEXT NOT NULL,
+            explanation TEXT,
             FOREIGN KEY (set_id) REFERENCES question_sets (id)
         )
     ''')
@@ -61,11 +62,12 @@ def save_single_question(question_data, topic):
     
     # 保存题目
     options = json.dumps(question_data.get('options')) if question_data.get('options') else None
+    explanation = question_data.get('explanation', '')
     cursor.execute('''
-        INSERT INTO questions (set_id, question_id, type, question, options, correct_answer)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO questions (set_id, question_id, type, question, options, correct_answer, explanation)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', (set_id, next_question_id, question_data['type'], question_data['question'], 
-          options, str(question_data['correct_answer'])))
+          options, str(question_data['correct_answer']), explanation))
     
     conn.commit()
     conn.close()
@@ -85,11 +87,12 @@ def save_selected_questions(questions_list, selected_ids, title):
         question = next((q for q in questions_list if q['id'] == int(question_id)), None)
         if question:
             options = json.dumps(question.get('options')) if question.get('options') else None
+            explanation = question.get('explanation', '')
             cursor.execute('''
-                INSERT INTO questions (set_id, question_id, type, question, options, correct_answer)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO questions (set_id, question_id, type, question, options, correct_answer, explanation)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (set_id, i + 1, question['type'], question['question'], 
-                  options, str(question['correct_answer'])))
+                  options, str(question['correct_answer']), explanation))
     
     conn.commit()
     conn.close()
@@ -136,7 +139,7 @@ def load_question_set(set_id):
     
     # 获取题目
     cursor.execute('''
-        SELECT question_id, type, question, options, correct_answer
+        SELECT question_id, type, question, options, correct_answer, explanation
         FROM questions WHERE set_id = ? ORDER BY question_id
     ''', (set_id,))
     
@@ -146,7 +149,8 @@ def load_question_set(set_id):
             'id': row[0],
             'type': row[1],
             'question': row[2],
-            'correct_answer': int(row[4]) if row[1] == 'multiple_choice' else row[4]
+            'correct_answer': int(row[4]) if row[1] == 'multiple_choice' else row[4],
+            'explanation': row[5] or ''
         }
         if row[3]:
             q['options'] = json.loads(row[3])
