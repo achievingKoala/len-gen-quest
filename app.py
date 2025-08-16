@@ -56,7 +56,7 @@ def generate_questions(text, choice_count=1, fill_count=1):
     """生成题目和主题的核心函数"""
     client = OpenAI(
         base_url=os.getenv('OPENAI_BASE_URL'),
-        api_key=os.getenv('OPENAI_API_KEY'),
+        api_key=os.getenv('OPENAI_API_KEY')
     )
     
     total_count = choice_count + fill_count
