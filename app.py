@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import json
 import os
+import uuid
 from openai import OpenAI
 from dotenv import load_dotenv
 from database import init_db, save_single_question, save_selected_questions, get_question_sets, load_question_set
@@ -8,12 +9,22 @@ from database import init_db, save_single_question, save_selected_questions, get
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+app.permanent_session_lifetime = 86400 * 365  # 1年
 
 # 初始化数据库
 init_db()
 
+def get_user_id():
+    """获取或创建用户ID"""
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
+        session.permanent = True  # 设置为永久session
+    return session['user_id']
+
 @app.route('/')
 def index():
+    get_user_id()  # 确保用户有ID
     load_id = request.args.get('load')
     if load_id:
         return render_template('index.html', load_id=load_id)
@@ -179,11 +190,12 @@ def save_single_question_api():
         data = request.get_json()
         question_data = data.get('question')
         topic = data.get('topic', '单个题目')
+        user_id = get_user_id()
         
         if not question_data:
             return jsonify({'error': '题目数据不能为空'}), 400
         
-        set_id = save_single_question(question_data, topic)
+        set_id = save_single_question(question_data, topic, user_id)
         return jsonify({'success': True, 'set_id': set_id})
     
     except Exception as e:
@@ -195,11 +207,12 @@ def save_selected_questions_api():
         data = request.get_json()
         selected_ids = data.get('selected_ids', [])
         title = data.get('title', current_topic)
+        user_id = get_user_id()
         
         if not selected_ids:
             return jsonify({'error': '请选择题目'}), 400
         
-        set_id, count = save_selected_questions(current_questions, selected_ids, title)
+        set_id, count = save_selected_questions(current_questions, selected_ids, title, user_id)
         return jsonify({'success': True, 'set_id': set_id, 'count': count})
     
     except Exception as e:
@@ -208,7 +221,8 @@ def save_selected_questions_api():
 @app.route('/question_sets')
 def list_question_sets():
     try:
-        sets = get_question_sets()
+        user_id = get_user_id()
+        sets = get_question_sets(user_id)
         return jsonify({'sets': sets})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -217,10 +231,11 @@ def list_question_sets():
 def load_questions(set_id):
     try:
         global current_questions, current_topic
+        user_id = get_user_id()
         
-        topic, questions = load_question_set(set_id)
+        topic, questions = load_question_set(set_id, user_id)
         if not topic:
-            return jsonify({'error': '题目集不存在'}), 404
+            return jsonify({'error': '题目集不存在或无权限访问'}), 404
         
         current_questions = questions
         current_topic = topic

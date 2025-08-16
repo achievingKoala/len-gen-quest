@@ -5,10 +5,13 @@ from datetime import datetime
 def init_db():
     """初始化数据库"""
     conn = sqlite3.connect('questions.db')
+    
+    # 创建或更新question_sets表
     conn.execute('''
         CREATE TABLE IF NOT EXISTS question_sets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             topic TEXT NOT NULL,
+            user_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -39,13 +42,13 @@ def init_db():
     conn.commit()
     conn.close()
 
-def save_single_question(question_data, topic):
+def save_single_question(question_data, topic, user_id):
     """保存单个题目到现有或新建题目集"""
     conn = sqlite3.connect('questions.db')
     cursor = conn.cursor()
     
-    # 查找现有题目集
-    cursor.execute('SELECT id FROM question_sets WHERE topic = ?', (topic,))
+    # 查找现有题目集（按用户ID）
+    cursor.execute('SELECT id FROM question_sets WHERE topic = ? AND user_id = ?', (topic, user_id))
     result = cursor.fetchone()
     
     if result:
@@ -56,7 +59,7 @@ def save_single_question(question_data, topic):
         next_question_id = max_id + 1
     else:
         # 创建新题目集
-        cursor.execute('INSERT INTO question_sets (topic) VALUES (?)', (topic,))
+        cursor.execute('INSERT INTO question_sets (topic, user_id) VALUES (?, ?)', (topic, user_id))
         set_id = cursor.lastrowid
         next_question_id = 1
     
@@ -73,13 +76,13 @@ def save_single_question(question_data, topic):
     conn.close()
     return set_id
 
-def save_selected_questions(questions_list, selected_ids, title):
+def save_selected_questions(questions_list, selected_ids, title, user_id):
     """保存选中的题目"""
     conn = sqlite3.connect('questions.db')
     cursor = conn.cursor()
     
     # 创建题目集
-    cursor.execute('INSERT INTO question_sets (topic) VALUES (?)', (title,))
+    cursor.execute('INSERT INTO question_sets (topic, user_id) VALUES (?, ?)', (title, user_id))
     set_id = cursor.lastrowid
     
     # 保存选中题目
@@ -98,8 +101,8 @@ def save_selected_questions(questions_list, selected_ids, title):
     conn.close()
     return set_id, len(selected_ids)
 
-def get_question_sets():
-    """获取题目集列表"""
+def get_question_sets(user_id):
+    """获取题目集列表（按用户ID）"""
     conn = sqlite3.connect('questions.db')
     cursor = conn.cursor()
     
@@ -107,9 +110,10 @@ def get_question_sets():
         SELECT qs.id, qs.topic, qs.created_at, COUNT(q.id) as question_count
         FROM question_sets qs
         LEFT JOIN questions q ON qs.id = q.set_id
+        WHERE qs.user_id = ?
         GROUP BY qs.id
         ORDER BY qs.created_at DESC
-    ''')
+    ''', (user_id,))
     
     sets = []
     for row in cursor.fetchall():
@@ -123,13 +127,13 @@ def get_question_sets():
     conn.close()
     return sets
 
-def load_question_set(set_id):
-    """加载题目集"""
+def load_question_set(set_id, user_id):
+    """加载题目集（验证用户权限）"""
     conn = sqlite3.connect('questions.db')
     cursor = conn.cursor()
     
-    # 获取题目集信息
-    cursor.execute('SELECT topic FROM question_sets WHERE id = ?', (set_id,))
+    # 获取题目集信息（验证用户权限）
+    cursor.execute('SELECT topic FROM question_sets WHERE id = ? AND user_id = ?', (set_id, user_id))
     result = cursor.fetchone()
     if not result:
         conn.close()
