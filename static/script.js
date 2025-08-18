@@ -238,12 +238,16 @@ class QuizApp {
         const title = prompt('请输入题目集名称:', `${this.topic} - 精选题目`);
         if (!title) return;
 
+        const selectedQuestions = this.questions.filter(q => 
+            this.selectedQuestions.has(q.id)
+        );
+
         try {
             const response = await fetch('/save_selected_questions', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    selected_ids: Array.from(this.selectedQuestions),
+                    selected_questions: selectedQuestions,
                     title: title
                 })
             });
@@ -285,7 +289,7 @@ class QuizApp {
         }
     }
 
-    async checkSingleAnswer(questionId) {
+    checkSingleAnswer(questionId) {
         const question = this.questions.find(q => q.id == questionId);
         if (!question) return;
 
@@ -298,23 +302,21 @@ class QuizApp {
             userAnswer = input.value.trim();
         }
 
-        try {
-            const response = await fetch('/submit_answer', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    question_id: questionId,
-                    answer: userAnswer
-                })
-            });
-
-            const result = await response.json();
-            this.showAnswerFeedback(questionId, result, question);
-        } catch (error) {
-            alert('检查答案失败: ' + error.message);
+        // 前端直接判题
+        let isCorrect = false;
+        if (question.type === 'multiple_choice') {
+            isCorrect = userAnswer === question.correct_answer;
+        } else if (question.type === 'fill_blank') {
+            isCorrect = userAnswer.toLowerCase() === question.correct_answer.toLowerCase();
         }
+
+        const result = {
+            correct: isCorrect,
+            correct_answer: question.correct_answer,
+            user_answer: userAnswer
+        };
+
+        this.showAnswerFeedback(questionId, result, question);
     }
 
     showAnswerFeedback(questionId, result, question) {
