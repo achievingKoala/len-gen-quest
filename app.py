@@ -48,10 +48,7 @@ def upload_text():
         # 生成题目和主题
         result = generate_questions(text_content, choice_count, fill_count)
         
-        # 保存当前题目到session
-        session['current_questions'] = result['questions']
-        session['current_topic'] = result['topic']
-        
+        # 不存session，直接返回
         return jsonify({
             'success': True,
             'questions': result['questions'],
@@ -151,36 +148,7 @@ def generate_questions(text, choice_count=1, fill_count=1):
 
 
 
-@app.route('/submit_answer', methods=['POST'])
-def submit_answer():
-    try:
-        data = request.get_json()
-        question_id = data.get('question_id')
-        user_answer = data.get('answer')
-        
-        # 查找对应题目
-        current_questions = session.get('current_questions', [])
-        question = next((q for q in current_questions if q['id'] == int(question_id)), None)
-        if not question:
-            return jsonify({'error': '题目不存在'}), 400
-        
-        # 验证答案
-        correct_answer = question['correct_answer']
-        is_correct = False
-        
-        if question['type'] == 'multiple_choice':
-            is_correct = user_answer == correct_answer
-        elif question['type'] == 'fill_blank':
-            is_correct = str(user_answer).strip().lower() == str(correct_answer).strip().lower()
-        
-        return jsonify({
-            'correct': is_correct,
-            'correct_answer': correct_answer,
-            'user_answer': user_answer
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/save_single_question', methods=['POST'])
 def save_single_question_api():
@@ -203,15 +171,14 @@ def save_single_question_api():
 def save_selected_questions_api():
     try:
         data = request.get_json()
-        selected_ids = data.get('selected_ids', [])
-        title = data.get('title', session.get('current_topic', '未命名题目集'))
-        current_questions = session.get('current_questions', [])
+        selected_questions = data.get('selected_questions', [])
+        title = data.get('title', '未命名题目集')
         user_id = get_user_id()
         
-        if not selected_ids:
+        if not selected_questions:
             return jsonify({'error': '请选择题目'}), 400
         
-        set_id, count = save_selected_questions(current_questions, selected_ids, title, user_id)
+        set_id, count = save_selected_questions(selected_questions, None, title, user_id)
         return jsonify({'success': True, 'set_id': set_id, 'count': count})
     
     except Exception as e:
@@ -234,9 +201,6 @@ def load_questions(set_id):
         topic, questions = load_question_set(set_id, user_id)
         if not topic:
             return jsonify({'error': '题目集不存在或无权限访问'}), 404
-        
-        session['current_questions'] = questions
-        session['current_topic'] = topic
         
         return jsonify({
             'success': True,
