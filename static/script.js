@@ -3,6 +3,7 @@ class QuizApp {
         this.questions = [];
         this.userAnswers = {};
         this.selectedQuestions = new Set();
+        this.currentSetId = null;
         this.init();
     }
 
@@ -50,6 +51,10 @@ class QuizApp {
 
         document.getElementById('load-questions-btn').addEventListener('click', () => {
             this.showLoadDialog();
+        });
+        
+        document.getElementById('wrong-questions-btn').addEventListener('click', () => {
+            window.open('/wrong_questions_page', '_blank');
         });
     }
 
@@ -278,6 +283,7 @@ class QuizApp {
             if (data.success) {
                 this.questions = data.questions;
                 this.topic = data.topic;
+                this.currentSetId = setId;
                 this.selectedQuestions.clear();
                 this.displayQuestions();
                 alert('题目加载成功！');
@@ -317,6 +323,11 @@ class QuizApp {
         };
 
         this.showAnswerFeedback(questionId, result, question);
+        
+        // 如果是从题目集加载的题目，记录答题结果
+        if (this.currentSetId) {
+            this.saveAnswerRecord(this.currentSetId, questionId, userAnswer, result.correct);
+        }
     }
 
     showAnswerFeedback(questionId, result, question) {
@@ -357,12 +368,18 @@ class QuizApp {
             }
         });
 
-        // 计算得分
+        // 计算得分并记录答题结果
         let correct = 0;
         this.questions.forEach(question => {
             const userAnswer = this.userAnswers[question.id];
-            if (userAnswer === question.correct_answer) {
+            const isCorrect = userAnswer === question.correct_answer;
+            if (isCorrect) {
                 correct++;
+            }
+            
+            // 如果是从题目集加载的题目，记录答题结果
+            if (this.currentSetId) {
+                this.saveAnswerRecord(this.currentSetId, question.id, userAnswer, isCorrect);
             }
         });
 
@@ -424,10 +441,32 @@ class QuizApp {
         // Loading will be hidden when displayQuestions is called
     }
 
+    async saveAnswerRecord(setId, questionId, userAnswer, isCorrect) {
+        try {
+            const response = await fetch('/save_answer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    set_id: setId,
+                    question_id: questionId,
+                    user_answer: userAnswer,
+                    is_correct: isCorrect
+                })
+            });
+            
+            if (!response.ok) {
+                console.error('保存答题记录失败:', response.statusText);
+            }
+        } catch (error) {
+            console.error('保存答题记录失败:', error);
+        }
+    }
+
     resetQuiz() {
         this.questions = [];
         this.userAnswers = {};
         this.selectedQuestions.clear();
+        this.currentSetId = null;
         
         document.getElementById('text-input').value = '';
         document.getElementById('upload-section').style.display = 'block';

@@ -162,3 +162,51 @@ def load_question_set(set_id, user_id):
     
     conn.close()
     return topic, questions
+
+def save_answer_record(set_id, question_id, user_answer, is_correct):
+    """保存答题记录"""
+    conn = sqlite3.connect('questions.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO answer_history (set_id, question_id, user_answer, is_correct)
+        VALUES (?, ?, ?, ?)
+    ''', (set_id, question_id, str(user_answer), is_correct))
+    
+    conn.commit()
+    conn.close()
+
+def get_wrong_questions(user_id):
+    """获取错题列表"""
+    conn = sqlite3.connect('questions.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT DISTINCT ah.set_id, ah.question_id, qs.topic, q.type, q.question, 
+               q.options, q.correct_answer, q.explanation, ah.user_answer, ah.answered_at
+        FROM answer_history ah
+        JOIN question_sets qs ON ah.set_id = qs.id
+        JOIN questions q ON ah.set_id = q.set_id AND ah.question_id = q.question_id
+        WHERE qs.user_id = ? AND ah.is_correct = 0
+        ORDER BY ah.answered_at DESC
+    ''', (user_id,))
+    
+    wrong_questions = []
+    for row in cursor.fetchall():
+        q = {
+            'set_id': row[0],
+            'question_id': row[1],
+            'topic': row[2],
+            'type': row[3],
+            'question': row[4],
+            'correct_answer': int(row[6]) if row[3] == 'multiple_choice' else row[6],
+            'explanation': row[7] or '',
+            'user_answer': row[8],
+            'answered_at': row[9]
+        }
+        if row[5]:
+            q['options'] = json.loads(row[5])
+        wrong_questions.append(q)
+    
+    conn.close()
+    return wrong_questions

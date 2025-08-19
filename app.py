@@ -4,7 +4,7 @@ import os
 import uuid
 from openai import OpenAI
 from dotenv import load_dotenv
-from database import init_db, save_single_question, save_selected_questions, get_question_sets, load_question_set
+from database import init_db, save_single_question, save_selected_questions, get_question_sets, load_question_set, save_answer_record, get_wrong_questions
 
 load_dotenv()
 
@@ -33,6 +33,19 @@ def index():
 @app.route('/question_sets_page')
 def question_sets_page():
     return render_template('question_sets.html')
+
+@app.route('/wrong_questions_page')
+def wrong_questions_page():
+    return render_template('wrong_questions.html')
+
+@app.route('/wrong_questions')
+def get_wrong_questions_api():
+    try:
+        user_id = get_user_id()
+        wrong_questions = get_wrong_questions(user_id)
+        return jsonify({'questions': wrong_questions})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_text', methods=['POST'])
 def upload_text():
@@ -207,6 +220,24 @@ def load_questions(set_id):
             'questions': questions,
             'topic': topic
         })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save_answer', methods=['POST'])
+def save_answer():
+    try:
+        data = request.get_json()
+        set_id = data.get('set_id')
+        question_id = data.get('question_id')
+        user_answer = data.get('user_answer')
+        is_correct = data.get('is_correct')
+        
+        if set_id and question_id is not None:
+            save_answer_record(set_id, question_id, user_answer, is_correct)
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': '参数不完整'}), 400
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500

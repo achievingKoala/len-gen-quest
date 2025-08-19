@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错题本 - 智能题目生成器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 错题本</h1>
+            <p>复习你的错题，巩固知识点</p>
+            <div class="nav-buttons">
+                <a href="/" class="btn btn-secondary">返回首页</a>
+                <a href="/question_sets_page" class="btn btn-info">题目集管理</a>
+            </div>
+        </header>
+
+        <main>
+            <section class="section">
+                <div id="loading" style="text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                    <span>加载错题中...</span>
+                </div>
+                
+                <div id="wrong-questions-container" style="display: none;">
+                    <div id="stats" class="stats-bar"></div>
+                    <div id="questions-list"></div>
+                </div>
+                
+                <div id="empty-state" style="display: none; text-align: center; padding: 40px;">
+                    <h3>🎉 太棒了！</h3>
+                    <p>你还没有错题记录，继续保持！</p>
+                    <a href="/" class="btn btn-primary">开始练习</a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        class WrongQuestionsApp {
+            constructor() {
+                this.wrongQuestions = [];
+                this.init();
+            }
+
+            async init() {
+                await this.loadWrongQuestions();
+            }
+
+            async loadWrongQuestions() {
+                try {
+                    const response = await fetch('/wrong_questions');
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        alert('加载失败: ' + data.error);
+                        return;
+                    }
+
+                    this.wrongQuestions = data.questions;
+                    this.displayQuestions();
+                } catch (error) {
+                    alert('加载失败: ' + error.message);
+                }
+            }
+
+            displayQuestions() {
+                document.getElementById('loading').style.display = 'none';
+                
+                if (this.wrongQuestions.length === 0) {
+                    document.getElementById('empty-state').style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('wrong-questions-container').style.display = 'block';
+                this.displayStats();
+                this.displayQuestionsList();
+            }
+
+            displayStats() {
+                const topics = {};
+                this.wrongQuestions.forEach(q => {
+                    topics[q.topic] = (topics[q.topic] || 0) + 1;
+                });
+
+                const statsHtml = `
+                    <h3>错题统计</h3>
+                    <p>总错题数: <strong>${this.wrongQuestions.length}</strong></p>
+                    <p>涉及主题: ${Object.keys(topics).map(topic => 
+                        `${topic}(${topics[topic]}题)`
+                    ).join(', ')}</p>
+                `;
+                
+                document.getElementById('stats').innerHTML = statsHtml;
+            }
+
+            displayQuestionsList() {
+                const questionsHtml = this.wrongQuestions.map((question, index) => {
+                    const userAnswerText = this.formatAnswer(question, question.user_answer);
+                    const correctAnswerText = this.formatAnswer(question, question.correct_answer);
+                    
+                    return `
+                        <div class="question-item" style="margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+                            <div class="question-header" style="margin-bottom: 15px;">
+                                <span class="question-number" style="font-weight: bold; color: #666;">题目 ${index + 1}</span>
+                                <span class="question-topic" style="margin-left: 10px; padding: 2px 8px; background: #e3f2fd; border-radius: 12px; font-size: 12px; color: #1976d2;">${question.topic}</span>
+                                <span class="question-date" style="float: right; color: #999; font-size: 12px;">${new Date(question.answered_at).toLocaleString()}</span>
+                            </div>
+                            
+                            <div class="question-content">
+                                <p><strong>题目：</strong>${question.question}</p>
+                                
+                                ${question.type === 'multiple_choice' ? `
+                                    <div class="options" style="margin: 10px 0;">
+                                        ${question.options.map((option, i) => `
+                                            <div style="margin: 5px 0; padding: 5px; border-radius: 4px; ${i === question.correct_answer ? 'background: #d4edda; color: #155724;' : ''}">
+                                                ${String.fromCharCode(65 + i)}. ${option} ${i === question.correct_answer ? '✅' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="answer-comparison" style="margin: 15px 0; padding: 15px; background: #fff; border-radius: 4px;">
+                                    <p><strong>你的答案：</strong><span style="color: #dc3545;">${userAnswerText}</span> ❌</p>
+                                    <p><strong>正确答案：</strong><span style="color: #28a745;">${correctAnswerText}</span> ✅</p>
+                                    ${question.explanation ? `<p><strong>解析：</strong>${question.explanation}</p>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('questions-list').innerHTML = questionsHtml;
+            }
+
+            formatAnswer(question, answer) {
+                if (question.type === 'multiple_choice') {
+                    return question.options[answer] || '未选择';
+                }
+                return answer || '未填写';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new WrongQuestionsApp();
+        });
+    </script>
+</body>
+</html>
