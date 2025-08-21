@@ -2,11 +2,21 @@ from flask import Flask, render_template, request, jsonify, session
 import json
 import os
 import uuid
+import logging
+import traceback
 from openai import OpenAI
 from dotenv import load_dotenv
 from database import init_db, save_single_question, save_selected_questions, get_question_sets, load_question_set, save_answer_record, get_wrong_questions
 
 load_dotenv()
+
+
+# 配置日志
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
@@ -50,17 +60,22 @@ def get_wrong_questions_api():
 @app.route('/upload_text', methods=['POST'])
 def upload_text():
     try:
+        logger.info("开始处理文本上传请求")
         data = request.get_json()
         text_content = data.get('text', '')
         choice_count = data.get('choice_count', 1)
         fill_count = data.get('fill_count', 1)
         
+        logger.info(f"文本长度: {len(text_content)}, 选择题: {choice_count}, 填空题: {fill_count}")
+        
         if not text_content.strip():
+            logger.warning("文本内容为空")
             return jsonify({'error': '文本内容不能为空'}), 400
         
         # 生成题目和主题
         result = generate_questions(text_content, choice_count, fill_count)
         
+        logger.info("题目生成成功")
         # 不存session，直接返回
         return jsonify({
             'success': True,
@@ -70,6 +85,8 @@ def upload_text():
         })
     
     except Exception as e:
+        logger.error(f"处理文本上传时发生错误: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 def generate_questions(text, choice_count=1, fill_count=1):
@@ -111,12 +128,15 @@ def generate_questions(text, choice_count=1, fill_count=1):
 """
     
     try:
+        logger.info("开始调用AI生成题目")
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
         )
         
         content = response.choices[0].message.content
+        logger.info(f"AI返回内容长度: {len(content)}")
+        
         # 提取JSON内容，去除markdown格式
         if '```json' in content:
             content = content.split('```json')[1].split('```')[0].strip()
@@ -124,9 +144,11 @@ def generate_questions(text, choice_count=1, fill_count=1):
             content = content.split('```')[1].split('```')[0].strip()
         
         result = json.loads(content)
+        logger.info("AI题目生成成功")
         return result
     except Exception as e:
-        print(f"AI调用失败: {e}")
+        logger.error(f"AI调用失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 如果AI调用失败，返回默认题目和主题
         default_questions = []
         question_id = 1
@@ -241,6 +263,13 @@ def save_answer():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 全局错误处理器
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"未捕获的异常: {str(e)}")
+    logger.error(f"错误详情: {traceback.format_exc()}")
+    return jsonify({'error': '服务器内部错误', 'details': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
