@@ -96,6 +96,12 @@ class QuizApp {
                 this.questions = data.questions;
                 this.topic = data.topic;
                 this.selectedQuestions.clear();
+                // 重置保存按钮状态
+                const saveSelectedBtn = document.getElementById('save-selected-btn');
+                if (saveSelectedBtn) {
+                    saveSelectedBtn.disabled = false;
+                    saveSelectedBtn.textContent = '保存选中题目';
+                }
                 this.displayQuestions();
             } else {
                 alert('生成题目失败: ' + data.error);
@@ -213,6 +219,12 @@ class QuizApp {
         const question = this.questions.find(q => q.id == questionId);
         if (!question) return;
 
+        const saveBtn = document.querySelector(`[onclick="app.saveSingleQuestion(${questionId})"]`);
+        if (saveBtn.disabled) return;
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+
         try {
             const response = await fetch('/save_single_question', {
                 method: 'POST',
@@ -226,11 +238,16 @@ class QuizApp {
             const data = await response.json();
             if (data.success) {
                 alert('题目保存成功！');
+                saveBtn.textContent = '已保存';
             } else {
                 alert('保存失败: ' + data.error);
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾';
             }
         } catch (error) {
             alert('保存失败: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾';
         }
     }
 
@@ -242,6 +259,12 @@ class QuizApp {
 
         const title = prompt('请输入题目集名称:', `${this.topic} - 精选题目`);
         if (!title) return;
+
+        const saveBtn = document.getElementById('save-selected-btn');
+        if (saveBtn.disabled) return;
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
 
         const selectedQuestions = this.questions.filter(q => 
             this.selectedQuestions.has(q.id)
@@ -263,11 +286,16 @@ class QuizApp {
                 this.selectedQuestions.clear();
                 this.updateSelectedCount();
                 document.querySelectorAll('.question-checkbox').forEach(cb => cb.checked = false);
+                saveBtn.textContent = '已保存';
             } else {
                 alert('保存失败: ' + data.error);
+                saveBtn.disabled = false;
+                saveBtn.textContent = '保存选中题目';
             }
         } catch (error) {
             alert('保存失败: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存选中题目';
         }
     }
 
@@ -285,6 +313,12 @@ class QuizApp {
                 this.topic = data.topic;
                 this.currentSetId = setId;
                 this.selectedQuestions.clear();
+                // 重置保存按钮状态
+                const saveSelectedBtn = document.getElementById('save-selected-btn');
+                if (saveSelectedBtn) {
+                    saveSelectedBtn.disabled = false;
+                    saveSelectedBtn.textContent = '保存选中题目';
+                }
                 this.displayQuestions();
                 alert('题目加载成功！');
             } else {
@@ -467,6 +501,13 @@ class QuizApp {
         this.userAnswers = {};
         this.selectedQuestions.clear();
         this.currentSetId = null;
+        
+        // 重置保存按钮状态
+        const saveSelectedBtn = document.getElementById('save-selected-btn');
+        if (saveSelectedBtn) {
+            saveSelectedBtn.disabled = false;
+            saveSelectedBtn.textContent = '保存选中题目';
+        }
         
         document.getElementById('text-input').value = '';
         document.getElementById('upload-section').style.display = 'block';
